@@ -1,0 +1,36 @@
+Name:                rbm
+Version:             0.1
+Synopsis:            Restricted Boltzmann Machine
+-- Description:         
+Homepage:            https://github.com/chetant/rbm
+License:             BSD3
+License-file:        LICENSE
+Author:              Chetan Taralekar
+Maintainer:          chetant@gmail.com
+Copyright:           Chetan Taralekar 2011-2012
+
+Category:            AI
+
+Build-type:          Simple
+
+-- Extra files to be distributed with the package, such as examples or
+-- a README.
+-- Extra-source-files:  
+
+-- Constraint on the version of Cabal needed to build this package.
+Cabal-version:       >=1.2
+
+
+Library
+  -- Modules exported by the library.
+  -- Exposed-modules:     
+  
+  -- Packages needed in order to build this package.
+  -- Build-depends:       
+  
+  -- Modules not exported by this package.
+  -- Other-modules:       
+  
+  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
+  -- Build-tools:         
+ 

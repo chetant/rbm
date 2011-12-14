@@ -6,7 +6,7 @@ import Data.Random
 import Data.Random.Distribution.Bernoulli
 
 import qualified Data.Array.Repa as R
-import Data.Array.Repa(Z(..), All(..), (:.)(..), (*^), (+^), (-^))
+import Data.Array.Repa(Z(..), All(..), (:.)(..), (*^), (+^), (-^), (/^))
 import Data.Array.Repa.Algorithms.Matrix(multiplyMM)
 
 import Graphics.Rendering.Chart hiding (Vector)
@@ -59,6 +59,10 @@ transpose :: Matrix -> Matrix
 transpose m = R.backpermute extent' swap m
     where swap (Z :. i :. j) = Z :. j :. i
           extent' = swap (R.extent m)
+
+dupVec :: Int -> Vector -> Matrix
+dupVec n v = R.extend (Z :. n :. All) v
+    where (Z :. h) = R.extent v
 
 getHiddenPGivenV :: RBM -> Vector -> Vector
 getHiddenPGivenV rbm v = R.map sigmoid $ hbs +^ (ws `mXv` v)
@@ -149,35 +153,55 @@ visualizeWeights rbm = do
           pts = [ (i `mod` w, h - (i `div` w), sz, round (255 * ((x - minWt)/wtRange))) | (i, x) <- zip [0..] (R.toList weights)]
 
 
-r = fromLists ([1, 0, 2], [0.5, (-1)], [[0.01, 0.1, 0.5], [-0.2, 0.4, 0.7]])
+-- r = fromLists ([0.01, 0, 0.05], [0.035, (-0.013)], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
+r = fromLists ([0, 0, 0], [0, 0], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
 v = vecFromList [1, 0, 1]
-e = mkLearnRate r 0.001
+e = mkWtConst r 0.07
 
-mkLearnRate :: RBM -> Double -> Matrix
-mkLearnRate r e = R.fromFunction (R.extent . rbm_weightsT $ r) (const e)
+mkWtConst :: RBM -> Double -> Matrix
+mkWtConst r e = R.fromFunction (R.extent . rbm_weightsT $ r) (const e)
 
 updateWeights :: RBM -> Matrix -> RBM
-updateWeights rbm delWt = rbm { rbm_weights = (rbm_weights rbm +^ delWt)
-                              , rbm_weightsT = (rbm_weightsT rbm +^ (R.transpose delWt)) }
+updateWeights rbm delWt = rbm { rbm_weights = (rbm_weights rbm +^ (R.transpose delWt))
+                              , rbm_weightsT = (rbm_weightsT rbm +^ delWt) }
 
-cdLearn :: Int -> Matrix -> RBM -> Vector -> IO RBM
+cdLearn :: Int -> Matrix -> RBM -> Vector -> IO (RBM, Double)
 cdLearn n epsilon rbm v = do
-  let ph = getHiddenPGivenV rbm v
-  hs <- samplePN ph 10
-  -- print hs
+  let numSamples = 10
+      ns = mkWtConst rbm 10
+  hs <- samplePN (getHiddenPGivenV rbm v) numSamples
   let posCor = corr v hs
-  -- print posCor
-  let pvs = getVisiblePGivenHs rbm hs
-  -- print pvs
-  vs <- samplePNs pvs
-  -- print vs
+  vs <- samplePNs (getVisiblePGivenHs rbm hs)
   let negCor = corrs vs hs
+  let delWt = epsilon *^ ((posCor -^ negCor) /^ ns)
+  -- print posCor
   -- print negCor
-  let delWt = epsilon *^ (posCor -^ negCor)
-      rbm' = updateWeights rbm delWt
+  -- print ns
+  -- print delWt
+  let rbm' = updateWeights rbm delWt
+  -- TODO: Get reconstruction error squared
+  let origVs = dupVec numSamples v
+      err = (origVs -^ vs)
+      errSq = (R.sumAll (err *^ err))
   -- print posCor
   -- print negCor
   -- print epsilon
   -- print delWt
   -- print rbm
-  return rbm'
+  return (rbm', errSq)
+
+learnLoop :: Int -> RBM -> Vector -> IO RBM
+learnLoop 0 rbm _ = return rbm
+learnLoop n rbm v = do
+  (rbm', err) <- cdLearn 1 e rbm v
+  putStrLn $ show n ++ "," ++ show err
+  -- putStrLn $ "N:" ++ show n ++ ", Error:" ++ show err
+  learnLoop (n-1) rbm' v
+
+reconstruct :: RBM -> Vector -> IO Vector
+reconstruct rbm v = do
+  let numSamples = 10
+  hs <- samplePN (getHiddenPGivenV rbm v) numSamples
+  vs <- samplePNs (getVisiblePGivenHs rbm hs)
+  let vs' = R.sum (transpose vs)
+  return vs'

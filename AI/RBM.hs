@@ -137,7 +137,8 @@ corrs vs hs = sh `prepend` (sv R.++ (R.sum $ vm *^ hm))
           sv = vec2Mtx (R.sum vsT) -- i,1
           sh = oneVec R.++ (R.sum hsT) -- <h> j + 1
 
-r = fromLists ([0.01, 0, 0.05], [0.035, (-0.013)], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
+-- r = fromLists ([0.01, 0, 0.05], [0.035, (-0.013)], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
+r = fromLists ([0, 0, 0], [0, 0], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
 v = vecFromList [1, 0, 1]
 e = mkWtConst r 0.07
 
@@ -158,10 +159,11 @@ cdLearn n epsilon rbm v = do
   hs <- samplePN (getHiddenPGivenV rbm v) numSamples
   let posCor = corr v hs
   vs' <- samplePNs (getVisiblePGivenHs rbm hs)
-  let negCor = corrs vs' hs
+  hs' <- samplePNs (getHiddenPGivenVs rbm vs')
+  let negCor = corrs vs' hs'
   let delWt = epsilon *^ ((posCor -^ negCor) /^ ns)
   let rbm' = updateWeights rbm delWt
-  -- TODO: Get reconstruction error squared
+  -- Get reconstruction error squared
   let origVs = dupVec numSamples v
       err = (origVs -^ vs')
       errSq = (R.sumAll (err *^ err))
@@ -179,7 +181,7 @@ learnLoop :: Int -> RBM -> Vector -> IO RBM
 learnLoop 0 rbm _ = return rbm
 learnLoop n rbm v = do
   (rbm', err) <- cdLearn 1 e rbm v
-  putStrLn $ show n ++ "," ++ show err
+  -- putStrLn $ show n ++ "," ++ show err
   -- putStrLn $ "N:" ++ show n ++ ", Error:" ++ show err
   learnLoop (n-1) rbm' v
 

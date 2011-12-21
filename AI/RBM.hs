@@ -138,11 +138,6 @@ corrs vs hs = sh `prepend` (sv R.++ (R.sum $ vm *^ hm))
           sv = vec2Mtx (R.sum vsT) -- i,1
           sh = oneVec R.++ (R.sum hsT) -- <h> j + 1
 
--- r = fromLists ([0.01, 0, 0.05], [0.035, (-0.013)], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
-r = fromLists ([0, 0, 0], [0, 0], [[0.01, 0.06, 0.25], [-0.072, 0.048, 0.017]])
-v = vecFromList [1, 0, 1]
-e = mkWtConst r 0.07
-
 mkWtConst :: RBM -> Double -> Matrix
 mkWtConst r e = R.fromFunction (Z :. (h+1) :. w) (const e)
     where (Z :. h  :. w) = R.extent (rbm_weightsT r)
@@ -153,20 +148,23 @@ updateWeights rbm delWt = rbm { rbm_weights  = (rbm_weights  rbm +^ dwt)
     where dwtT  = R.traverse delWt (\(Z :. h :. w) -> (Z :. (h-1) :. w)) (\f (Z :. i :. j) -> f (Z :. (i+1) :. j)) -- (i+1)x(j+1) -> (i)x(j+1)
           dwt = R.traverse delWt (\(Z :. h :. w) -> (Z :. (w-1) :. h)) (\f (Z :. i :. j) -> f (Z :. j :. (i+1))) -- (i+1)x(j+1) -> (j)x(i+1)
 
-cdLearn :: Int -> Matrix -> RBM -> Vector -> IO (RBM, Double)
-cdLearn n epsilon rbm v = do
-  let numSamples = 10
+cdLearn :: Int -> Matrix -> RBM -> Matrix -> IO (RBM, Double)
+cdLearn n epsilon rbm vs = do
+  let (Z :. numSamples :. _) = R.extent vs
       ns = mkWtConst rbm (realToFrac numSamples)
-  hs <- samplePN (getHiddenPGivenV rbm v) numSamples
-  let posCor = corr v hs
-  vs' <- samplePNs (getVisiblePGivenHs rbm hs)
-  hs' <- samplePNs (getHiddenPGivenVs rbm vs')
-  let negCor = corrs vs' hs'
+  hs <- samplePNs (getHiddenPGivenVs rbm vs)
+  let posCor = corrs vs hs
+      negRun n hs = do
+        vs' <- samplePNs (getVisiblePGivenHs rbm hs)
+        hs' <- samplePNs (getHiddenPGivenVs rbm vs')
+        case n of
+          0 -> return $ (vs', corrs vs' hs')
+          _ -> negRun (n-1) hs'
+  (vs', negCor) <- negRun n hs
   let delWt = epsilon *^ ((posCor -^ negCor) /^ ns)
   let rbm' = updateWeights rbm delWt
   -- Get reconstruction error squared
-  let origVs = dupVec numSamples v
-      err = (origVs -^ vs')
+  let err = (vs -^ vs')
       errSq = (R.sumAll (err *^ err))
   -- showMat "hs" hs
   -- showMat "posCor" posCor
@@ -178,13 +176,16 @@ cdLearn n epsilon rbm v = do
   -- print rbm
   return (rbm', errSq)
 
-learnLoop :: Int -> RBM -> Vector -> IO RBM
-learnLoop 0 rbm _ = return rbm
-learnLoop n rbm v = do
-  (rbm', err) <- cdLearn 1 e rbm v
-  -- putStrLn $ show n ++ "," ++ show err
-  -- putStrLn $ "N:" ++ show n ++ ", Error:" ++ show err
-  learnLoop (n-1) rbm' v
+learnLoop :: Int -> Double -> RBM -> Matrix -> IO RBM
+learnLoop 0 epsilon rbm _ = return rbm
+learnLoop n epsilon rbm vs = do
+  let e = mkWtConst rbm epsilon
+      go 0 _ r _  = return r
+      go n es r vs = do
+        (rbm', err) <- cdLearn 1 es rbm vs
+        putStrLn $ show n ++ "," ++ show err
+        go (n-1) es rbm' vs
+  go n e rbm vs
 
 reconstruct :: RBM -> Vector -> IO Vector
 reconstruct rbm v = do

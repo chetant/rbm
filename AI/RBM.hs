@@ -203,16 +203,17 @@ showMat name m = do
   putStrLn $ name ++ "(" ++ show h ++ ", " ++ show w ++ ") ="
   mapM_ (\h -> showVec (R.slice m (Z :. h :. All))) [0..(h-1)]
 
-visualizeWeights :: RBM -> IO ()
-visualizeWeights rbm = do
+visualizeWeights :: (R.Elt z, PlotValue z, Ord z, Num z, DefaultRange z) => R.Array R.DIM2 z -> IO ()
+visualizeWeights m = do
   renderableToWindow renderBars 640 480
     where renderBars :: Renderable ()
           renderBars = toRenderable $ wtsLayout
           wtsLayout :: Layout1 Int Int
           wtsLayout = layout1_title ^= "RBM Weights" 
                     $ layout1_plots ^= [ Left (plotPixelMap wtsPixMap) ]
+                    $ layout1_left_axis ^= (laxis_reverse ^= True $ defaultLayoutAxis)
+                    $ layout1_top_axis ^= defaultLayoutAxis
                     $ layout1_grid_last ^= True
                     $ defaultLayout1
-          wtsPixMap = pixel_map_title ^= "Weights"
-                    $ pixel_map_range ^= make_range (-9999) 9999 (rbm_weights r)
-                    $ defaultPixelMap (rbm_weights rbm)
+          wtsPixMap = pixel_map_range ^= make_range (-9999) 9999 m
+                    $ defaultPixelMap m

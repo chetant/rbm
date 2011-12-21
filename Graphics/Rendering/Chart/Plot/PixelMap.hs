@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -XTemplateHaskell #-}
 module Graphics.Rendering.Chart.Plot.PixelMap
-  ( PixelMap(..)
+  ( PixelMap(..), DefaultRange(..)
 
   , defaultPixelMap
   , plotPixelMap

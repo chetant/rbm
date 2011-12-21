@@ -12,6 +12,7 @@ import Data.Array.Repa.Algorithms.Matrix(multiplyMM)
 import Graphics.Rendering.Chart hiding (Vector)
 import Graphics.Rendering.Chart.Gtk
 import Graphics.Rendering.Chart.Plot.AreaSpots
+import Graphics.Rendering.Chart.Plot.PixelMap
 import Data.Colour.SRGB
 import Data.Accessor
 
@@ -204,26 +205,14 @@ showMat name m = do
 
 visualizeWeights :: RBM -> IO ()
 visualizeWeights rbm = do
-  print weights
-  print pts
   renderableToWindow renderBars 640 480
     where renderBars :: Renderable ()
           renderBars = toRenderable $ wtsLayout
           wtsLayout :: Layout1 Int Int
           wtsLayout = layout1_title ^= "RBM Weights" 
-                    $ layout1_plots ^= [ Left (toPlot wts) ]
+                    $ layout1_plots ^= [ Left (plotPixelMap wtsPixMap) ]
+                    $ layout1_grid_last ^= True
                     $ defaultLayout1
-          wts :: AreaSpots4D Int Int Int Int
-          wts = area_spots_4d_palette ^= colors
-              $ area_spots_4d_values ^= pts
-              $ defaultAreaSpots4D
-          maxWt = 5.0
-          minWt = 1.0
-          wtRange = maxWt - minWt
-          mkColor x = sRGB x x x
-          colors = map mkColor [x/255.0 | x <- [0..255]]
-          sz = 1
-          weights = rbm_weights rbm
-          (_ :. h :. w) = R.extent weights
-          pts = [ (i `mod` w, h - (i `div` w), sz, round (255 * ((x - minWt)/wtRange))) | (i, x) <- zip [0..] (R.toList weights)]
-
+          wtsPixMap = pixel_map_title ^= "Weights"
+                    $ pixel_map_range ^= make_range (-9999) 9999 (rbm_weights r)
+                    $ defaultPixelMap (rbm_weights rbm)

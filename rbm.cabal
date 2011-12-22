@@ -15,7 +15,7 @@ Build-type:          Simple
 
 -- Extra files to be distributed with the package, such as examples or
 -- a README.
--- Extra-source-files:  
+Extra-source-files:  README
 
 -- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
@@ -45,7 +45,7 @@ Library
                      ,data-accessor-template   >= 0.2.1.8  && < 1.0
   
   -- Modules not exported by this package.
-  -- Other-modules:       
+  -- Other-modules:      Test.Test1
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         

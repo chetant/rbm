@@ -6,5 +6,5 @@ v = vecFromList [1, 0, 1]
 e = 0.07
 
 main = do
-  res <- sequence $ replicate 2 (learnLoop 60 e r (dupVec 10 v) >>= \rbm -> reconstruct rbm (vecFromList [1, 1, 0]))
-  print res
+  res <- sequence $ replicate 20 (learnLoop 600 e r (dupVec 100 v) >>= \rbm -> reconstruct rbm (vecFromList [1, 1, 0]))
+  mapM_ print res

@@ -182,8 +182,8 @@ learnLoop n epsilon rbm vs = do
   let e = mkWtConst rbm epsilon
       go 0 _ r _  = return r
       go n es r vs = do
-        (rbm', err) <- cdLearn 1 es rbm vs
-        putStrLn $ show n ++ "," ++ show err
+        (rbm', err) <- cdLearn 1 es r vs
+        -- putStrLn $ show n ++ "," ++ show err
         go (n-1) es rbm' vs
   go n e rbm vs
 

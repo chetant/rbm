@@ -98,33 +98,37 @@ oneVec = R.fromFunction (Z :. 1) (const 1)
 dupVec :: Int -> Vector -> Matrix
 dupVec n v = R.extend (Z :. n :. All) v
 
+-- -# INLINE getHiddenPGivenV #-}
 getHiddenPGivenV :: RBM -> Vector -> Vector
 getHiddenPGivenV rbm v = R.map sigmoid $ (ws `mXv` (oneVec R.++ v))
     where ws = rbm_weights rbm
 
+-- -# INLINE getVisiblePGivenH #-}
 getVisiblePGivenH :: RBM -> Vector -> Vector
 getVisiblePGivenH rbm h = R.map sigmoid $ (ws `mXv` (oneVec R.++ h))
     where ws = rbm_weightsT rbm
 
--- -# INLINE getHiddenPGivenV #-}
+-- -# INLINE getHiddenPGivenVs #-}
 getHiddenPGivenVs :: RBM -> Matrix -> Matrix
-getHiddenPGivenVs rbm vs = R.map sigmoid $ R.sum (wm *^ vm)
+getHiddenPGivenVs rbm vs = ps
     where ws = rbm_weights rbm
           (Z :. j :. _) = R.extent ws
           (Z :. n :. _) = R.extent vs
           oneV = R.fromFunction (Z :. n :. 1) (const 1)
-          wm  = R.extend (Z :. n   :. All :. All) ws
-          vm  = R.extend (Z :. All :. j   :. All) (oneV R.++ vs)
+          wm = R.extend (Z :. n   :. All :. All) ws
+          vm = R.extend (Z :. All :. j   :. All) (oneV R.++ vs)
+          ps = R.force $ R.map sigmoid $ R.sum (wm *^ vm)
 
 -- -# INLINE getVisiblePGivenHs #-}
 getVisiblePGivenHs :: RBM -> Matrix -> Matrix
-getVisiblePGivenHs rbm hs = R.map sigmoid $ R.sum (wm *^ hm)
+getVisiblePGivenHs rbm hs = ps
     where ws = rbm_weightsT rbm
           (Z :. i :. _) = R.extent ws
           (Z :. n :. _) = R.extent hs
           oneH = R.fromFunction (Z :. n :. 1) (const 1)
-          wm  = R.extend (Z :. n   :. All :. All) ws
-          hm  = R.extend (Z :. All :. i   :. All) (oneH R.++ hs)
+          wm = R.extend (Z :. n   :. All :. All) ws
+          hm = R.extend (Z :. All :. i   :. All) (oneH R.++ hs)
+          ps = R.force $ R.map sigmoid $ R.sum (wm *^ hm)
 
 -- -# INLINE sampleP #-}
 sampleP :: Vector -> IO Vector
@@ -171,11 +175,6 @@ corrs vs hs = sh `prepend` (sv R.++ (R.sum $ vm *^ hm))
           sv = vec2Mtx (R.sum vsT) -- i,1
           sh = oneVec R.++ (R.sum hsT) -- <h> j + 1
 
--- -# INLINE mkWtConst #-}
-mkWtConst :: RBM -> Double -> Matrix
-mkWtConst r e = R.fromFunction (Z :. (h+1) :. w) (const e)
-    where (Z :. h  :. w) = R.extent (rbm_weightsT r)
-
 -- -# INLINE updateWeights #-}
 updateWeights :: RBM -> Matrix -> RBM
 updateWeights rbm delWt = rbm { rbm_weights  = wt
@@ -186,10 +185,8 @@ updateWeights rbm delWt = rbm { rbm_weights  = wt
           wtT = R.force $ rbm_weightsT rbm +^ dwtT
 
 -- -# INLINE cdLearn #-}
-cdLearn :: Int -> Matrix -> RBM -> Matrix -> IO RBM
+cdLearn :: Int -> Double -> RBM -> Matrix -> IO RBM
 cdLearn n epsilon rbm pvs = do
-  let (Z :. numSamples :. _) = R.extent pvs
-      ns = mkWtConst rbm (realToFrac numSamples)
   vs <- samplePNs pvs
   hs <- samplePNs (getHiddenPGivenVs rbm vs)
   let posCor = corrs vs hs
@@ -200,7 +197,7 @@ cdLearn n epsilon rbm pvs = do
           0 -> return $ corrs vs' hs'
           _ -> negRun (n-1) hs'
   negCor <- negRun n hs
-  let delWt = epsilon *^ ((posCor -^ negCor) /^ ns)
+  let delWt = R.map (* epsilon) (posCor -^ negCor)
   let rbm' = updateWeights rbm delWt
   return rbm'
 
@@ -208,13 +205,12 @@ cdLearn n epsilon rbm pvs = do
 -- input is in the form of n samples of input probability vector v i.e. vs = n x v matrix
 -- input is sampled i times, and each time we iterate through CD(cdn) to update rbm by epsilon
 trainBatch :: Int -> Int -> Double -> RBM -> Matrix -> IO RBM
-trainBatch cdn i epsilon rbm vs = do
-  let e = mkWtConst rbm epsilon
-      go 0 _ r _  = return r
-      go i es r vs = do
-        rbm' <- cdLearn cdn es r vs
-        go (i-1) es rbm' vs
-  go i e rbm vs
+trainBatch !cdn !i !epsilon !rbm !vs = 
+  let go  0 !r = return r
+      go !i !r = cdLearn cdn e r vs >>= go (i-1)
+      (Z :. numSamples :. _) = R.extent vs
+      e = epsilon / (realToFrac numSamples)
+  in go i rbm
 
 reconstruct :: RBM -> Int -> Int -> Vector -> IO Vector
 reconstruct rbm iters numSamples v = do

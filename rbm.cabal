@@ -46,9 +46,9 @@ Library
 
   ghc-options:        -threaded
                       -rtsopts
-                      -- -Odph -fllvm -optlo-O3
-                      -- -fno-liberate-case
-                      -- -funfolding-use-threshold30
+                      -Odph -fllvm -optlo-O3
+                      -fno-liberate-case
+                      -funfolding-use-threshold30
 
   ghc-prof-options:   -prof -rtsopts -auto-all
   

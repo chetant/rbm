@@ -1,0 +1,11 @@
+*~
+dist/
+*.hi
+*.o
+*.ps
+*.prof
+*.aux
+*.hp
+cabal-dev/
+Test/Test
+Test/Setup.hs

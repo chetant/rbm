@@ -31,10 +31,14 @@ type Image = R.Array R.DIM2 Double
 newtype Images = Images { unImages :: [Image] }
 newtype Labels = Labels { unLabels :: [Int] }
 
+{-# INLINE openTrainingImgs #-}
 openTrainingImgs   loc = decompress <$> B.readFile (loc </> "train-images-idx3-ubyte.gz")
+{-# INLINE openTrainingLabels #-}
 openTrainingLabels loc = decompress <$> B.readFile (loc </> "train-labels-idx1-ubyte.gz")
 
+{-# INLINE openTestImgs #-}
 openTestImgs   loc = decompress <$> B.readFile (loc </> "t10k-images-idx3-ubyte.gz")
+{-# INLINE openTestLabels #-}
 openTestLabels loc = decompress <$> B.readFile (loc </> "t10k-labels-idx1-ubyte.gz")
 
 instance Binary Images where
@@ -63,12 +67,15 @@ instance Binary Labels where
                    return $ Labels labels
         _ ->  error "Error decoding MNIST label stream, bad magic id!"
 
+{-# INLINE getImgs #-}
 getImgs :: (FilePath -> IO B.ByteString) -> FilePath -> IO [Image]
 getImgs f loc = unImages . decode <$> f loc
 
+{-# INLINE getLabels #-}
 getLabels :: (FilePath -> IO B.ByteString) -> FilePath -> IO [Int]
 getLabels f loc = unLabels . decode <$> f loc
 
+{-# INLINE getSet #-}
 getSet :: (FilePath -> IO [Image]) -> (FilePath -> IO [Int]) -> FilePath -> IO [(Image, Int)]
 getSet fi fl loc = zip <$> fi loc <*> fl loc
 

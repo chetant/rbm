@@ -43,6 +43,14 @@ Library
                      ,Chart           >= 0.14   && < 1.0
                      ,data-accessor   >= 0.2.2  && < 1.0
                      ,data-accessor-template   >= 0.2.1.8  && < 1.0
+
+  ghc-options:        -threaded
+                      -rtsopts
+                      -- -Odph -fllvm -optlo-O3
+                      -- -fno-liberate-case
+                      -- -funfolding-use-threshold30
+
+  ghc-prof-options:   -prof -rtsopts -auto-all
   
   -- Modules not exported by this package.
   -- Other-modules:      Test.Test1

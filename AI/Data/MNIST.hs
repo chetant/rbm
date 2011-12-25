@@ -6,6 +6,8 @@ module AI.Data.MNIST
 ,getTestImgs
 ,getTestLabels
 ,getTestSet
+,flattenSet
+,flattenImage
 ) where
 
 import qualified Data.Array.Repa as R
@@ -23,7 +25,8 @@ import Data.Either
 import Control.Monad
 import Control.Applicative((<$>), (<*>))
 
-type Image = R.Array R.DIM2 Int
+type IntImage = R.Array R.DIM2 Int
+type Image = R.Array R.DIM2 Double
 
 newtype Images = Images { unImages :: [Image] }
 newtype Labels = Labels { unLabels :: [Int] }
@@ -44,7 +47,7 @@ instance Binary Images where
                    h <- fromIntegral <$> (get :: Get Word32)
                    w <- fromIntegral <$> (get :: Get Word32)
                    let imgSize = w * h
-                       getImg = ((R.map fromIntegral) . fromByteString (Z :. h :. w)) <$> getByteString imgSize
+                       getImg = (R.map ((/256.0) . realToFrac) . fromByteString (Z :. h :. w)) <$> getByteString imgSize
                    imgs <- sequence $ replicate numImgs getImg
                    return $ Images imgs
         _ ->  error "Error decoding MNIST image stream, bad magic id!"
@@ -86,3 +89,10 @@ getTestLabels = getLabels openTestLabels
 
 getTestSet :: FilePath -> IO [(Image, Int)]
 getTestSet = getSet getTestImgs getTestLabels
+
+flattenSet :: [(Image, Int)] -> [(Image, Int)]
+flattenSet = map (\(m, n) -> (flattenImage m, n))
+
+flattenImage :: Image -> Image
+flattenImage m = R.reshape (Z :. (w * h) :. 1) m
+    where (Z :. w :. h) = R.extent m

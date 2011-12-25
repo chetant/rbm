@@ -17,4 +17,6 @@ cabal-version:       >=1.8
 executable Test
   main-is:           Test1.hs
   -- other-modules:       
-  build-depends:     base, rbm
+  build-depends:     base, rbm, repa
+  ghc-prof-options:  -prof -rtsopts -auto-all
+ 
